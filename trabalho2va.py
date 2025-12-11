@@ -2,9 +2,16 @@ import streamlit as st
 import os
 from datetime import datetime
 
+st.set_page_config(page_title="Loja dos Fuleiros", page_icon="🎮")
+
 ARQUIVO_JOGOS = "jogos.txt"
 ARQUIVO_VENDAS = "vendas.txt"
 
+
+CREDENCIAIS = {
+    "admin": {"senha": "admin123", "funcao": "admin"},
+    "cliente": {"senha": "cliente123", "funcao": "cliente"}
+}
 
 def carregar_jogos():
     jogos = []
@@ -88,130 +95,181 @@ def carregar_vendas():
                     })
     return vendas
 
+if "logado" not in st.session_state:
+    st.session_state.logado = False
+    st.session_state.usuario = None
+    st.session_state.funcao = None
+
+def fazer_logout():
+    st.session_state.logado = False
+    st.session_state.usuario = None
+    st.session_state.funcao = None
+    st.rerun()
 
 
-st.set_page_config(page_title="🎮 Loja dos Fuleiros", page_icon="🎮")
-st.title("🎮 Loja dos Fuleiros")
+if not st.session_state.logado:
+    st.title(" Login - 🎮 Loja dos Fuleiros")
+    st.write("Digite suas credenciais para acessar:")
 
-menu = st.sidebar.selectbox(
-    "|Escolha uma opção|",
-    ["Início", "Cadastrar Jogo", "Listar Jogos", "Buscar Jogo", "Atualizar Jogo", "Registrar Venda",
-     "Visualizar Vendas"]
-)
+    usuario = st.text_input("Usuário")
+    senha = st.text_input("Senha", type="password")
 
-if menu == "Início":
-    st.header(" Bem-vindo ao sistema da Loja dos Fuleiros!")
-    st.markdown(
-        """  
-        Você pode:
-        - **Cadastrar** novos jogos
-        - **Listar** todos os jogos
-        - **Buscar** por nome ou gênero
-        - **Atualizar** informações
-        - **Registrar vendas**
-        - **Visualizar histórico de vendas**
-
-        Use o menu lateral para navegar!
-        """
-    )
-    jogos = listar_jogos()
-    vendas = carregar_vendas()
-    st.subheader(f" Jogos cadastrados: {len(jogos)} |  Vendas realizadas: {len(vendas)}")
-
-
-elif menu == "Cadastrar Jogo":
-    st.header(" Cadastrar Novo Jogo")
-    nome = st.text_input("Nome do Jogo")
-    genero = st.text_input("Gênero (ex: RPG, Ação, Esporte)")
-    preco = st.number_input("Preço (R$)", min_value=0.0, step=1.0, format="%.2f")
-
-    if st.button("Cadastrar Jogo"):
-        if nome.strip() and genero.strip():
-            if cadastrar_jogo(nome.strip(), genero.strip(), preco):
-                st.success("Jogo cadastrado com sucesso!")
-            else:
-                st.warning(" Jogo já existe com esse nome!")
+    if st.button("Entrar"):
+        if usuario in CREDENCIAIS and CREDENCIAIS[usuario]["senha"] == senha:
+            st.session_state.logado = True
+            st.session_state.usuario = usuario
+            st.session_state.funcao = CREDENCIAIS[usuario]["funcao"]
+            st.success(f"Bem-vindo, {usuario}!")
+            st.rerun()
         else:
-            st.error(" Preencha o nome e o gênero!")
+            st.error("Usuário ou senha incorretos.")
+
+    st.info("Credenciais de teste:\n\n- **Admin**: `admin` / `admin123`\n- **Cliente**: `cliente` / `cliente123`")
+
+else:
+    st.title("🎮 Loja dos Fuleiros!")
+
+    with st.sidebar:
+        st.write(f"**Logado como:** {st.session_state.usuario} ({st.session_state.funcao})")
+        st.button("🚪 Logout", on_click=fazer_logout)
 
 
-elif menu == "Listar Jogos":
-    st.header(" Todos os Jogos Cadastrados")
-    jogos = listar_jogos()
-    if jogos:
-        for j in jogos:
-            st.write(f"**{j['nome']}** |  {j['genero']} |  R$ {j['preco']:.2f}")
-    else:
-        st.info("Nenhum jogo cadastrado ainda.")
+    if st.session_state.funcao == "admin":
+        opcoes_menu = ["Início", "Cadastrar Jogo", "Listar Jogos", "Buscar Jogo", "Atualizar Jogo", "Registrar Venda",
+                       "Visualizar Vendas"]
+    else:  
+        opcoes_menu = ["Início", "Listar Jogos", "Buscar Jogo"]
 
+    menu = st.sidebar.selectbox("|Escolha uma opção|", opcoes_menu)
 
-elif menu == "Buscar Jogo":
-    st.header(" Buscar Jogo")
-    termo = st.text_input("Digite parte do nome ou gênero")
-    if st.button("Buscar"):
-        if termo.strip():
-            resultados = buscar_jogo(termo.strip())
-            if resultados:
-                for j in resultados:
-                    st.write(f"**{j['nome']}** |  {j['genero']} |  R$ {j['preco']:.2f}")
-            else:
-                st.warning("Nenhum jogo encontrado.")
+    if menu == "Início":
+        st.header(" Bem-vindo ao sistema da Loja dos Fuleiros!")
+        if st.session_state.funcao == "admin":
+            st.markdown(
+                """  
+                Você pode:
+                - **Cadastrar** novos jogos
+                - **Listar** todos os jogos
+                - **Buscar** por nome ou gênero
+                - **Atualizar** informações de jogos
+                - **Registrar vendas**
+                - **Visualizar histórico de vendas**
+
+                Use o menu lateral para navegar!
+                """
+            )
         else:
-            st.error("Digite um termo para buscar!")
+            st.markdown(
+                """  
+                Você pode:
+                - **Listar** todos os jogos
+                - **Buscar** por nome ou gênero
+
+                Use o menu lateral para explorar nosso catálogo!
+                """
+            )
+
+        jogos = listar_jogos()
+        vendas = carregar_vendas()
+        if st.session_state.funcao == "admin":
+            st.subheader(f" Jogos cadastrados: {len(jogos)} |  Vendas realizadas: {len(vendas)}")
+        else:
+            st.subheader(f" Jogos cadastrados: {len(jogos)}")
 
 
-elif menu == "Atualizar Jogo":
-    st.header(" Atualizar Jogo")
-    jogos = listar_jogos()
-    if jogos:
-        nomes = [j["nome"] for j in jogos]
-        nome_selecionado = st.selectbox("Selecione o jogo para atualizar", nomes)
+    elif menu == "Cadastrar Jogo":
+        st.header(" Cadastrar Novo Jogo")
+        nome = st.text_input("Nome do Jogo")
+        genero = st.text_input("Gênero (ex: RPG, Ação, Esporte)")
+        preco = st.number_input("Preço (R$)", min_value=0.0, step=1.0, format="%.2f")
 
-        jogo_atual = next(j for j in jogos if j["nome"] == nome_selecionado)
-
-        novo_nome = st.text_input("Novo nome", value=jogo_atual["nome"])
-        novo_genero = st.text_input("Novo gênero", value=jogo_atual["genero"])
-        novo_preco = st.number_input(
-            "Novo preço (R$)",
-            value=float(jogo_atual["preco"]),
-            min_value=0.0,
-            step=1.0,
-            format="%.2f"
-        )
-
-        if st.button("Atualizar Jogo"):
-            atualizar_jogo(nome_selecionado, novo_nome, novo_genero, novo_preco)
-            st.success(" Jogo atualizado com sucesso!")
-    else:
-        st.info("Não há jogos para atualizar.")
+        if st.button("Cadastrar Jogo"):
+            if nome.strip() and genero.strip():
+                if cadastrar_jogo(nome.strip(), genero.strip(), preco):
+                    st.success("Jogo cadastrado com sucesso!")
+                else:
+                    st.warning(" Jogo já existe com esse nome!")
+            else:
+                st.error(" Preencha o nome e o gênero!")
 
 
-elif menu == "Registrar Venda":
-    st.header(" Registrar Nova Venda")
-    jogos = listar_jogos()
-    if not jogos:
-        st.warning("Nenhum jogo cadastrado. Cadastre pelo menos um jogo antes de vender.")
-    else:
-        nomes_jogos = [j["nome"] for j in jogos]
-        jogo_selecionado = st.selectbox("Selecione o jogo vendido", nomes_jogos)
+    elif menu == "Listar Jogos":
+        st.header(" Todos os Jogos Cadastrados")
+        jogos = listar_jogos()
+        if jogos:
+            for j in jogos:
+                st.write(f"**{j['nome']}** |  {j['genero']} |  R$ {j['preco']:.2f}")
+        else:
+            st.info("Nenhum jogo cadastrado ainda.")
 
 
-        jogo = next(j for j in jogos if j["nome"] == jogo_selecionado)
-        st.write(f"**Gênero:** {jogo['genero']} | **Preço:** R$ {jogo['preco']:.2f}")
+    elif menu == "Buscar Jogo":
+        st.header(" Buscar Jogo")
+        termo = st.text_input("Digite parte do nome ou gênero")
+        if st.button("Buscar"):
+            if termo.strip():
+                resultados = buscar_jogo(termo.strip())
+                if resultados:
+                    for j in resultados:
+                        st.write(f"**{j['nome']}** |  {j['genero']} |  R$ {j['preco']:.2f}")
+                else:
+                    st.warning("Nenhum jogo encontrado.")
+            else:
+                st.error("Digite um termo para buscar!")
 
-        if st.button(" Confirmar Venda"):
-            registrar_venda(jogo["nome"], jogo["genero"], jogo["preco"])
-            st.success(f"Venda de **{jogo['nome']}** registrada com sucesso!")
+
+    elif menu == "Atualizar Jogo":
+        st.header(" Atualizar Jogo")
+        jogos = listar_jogos()
+        if jogos:
+            nomes = [j["nome"] for j in jogos]
+            nome_selecionado = st.selectbox("Selecione o jogo para atualizar", nomes)
+
+            jogo_atual = next(j for j in jogos if j["nome"] == nome_selecionado)
+
+            novo_nome = st.text_input("Novo nome", value=jogo_atual["nome"])
+            novo_genero = st.text_input("Novo gênero", value=jogo_atual["genero"])
+            novo_preco = st.number_input(
+                "Novo preço (R$)",
+                value=float(jogo_atual["preco"]),
+                min_value=0.0,
+                step=1.0,
+                format="%.2f"
+            )
+
+            if st.button("Atualizar Jogo"):
+                atualizar_jogo(nome_selecionado, novo_nome, novo_genero, novo_preco)
+                st.success(" Jogo atualizado com sucesso!")
+        else:
+            st.info("Não há jogos para atualizar.")
 
 
-elif menu == "Visualizar Vendas":
-    st.header(" Histórico de Vendas")
-    vendas = carregar_vendas()
-    if vendas:
-        total_vendas = sum(v["preco"] for v in vendas)
-        st.metric("Total em Vendas", f"R$ {total_vendas:.2f}")
-        st.divider()
-        for v in vendas:
-            st.write(f"**{v['nome']}** |  {v['genero']} |  R$ {v['preco']:.2f} |  {v['data_hora']}")
-    else:
-        st.info("Nenhuma venda registrada ainda.")
+    elif menu == "Registrar Venda":
+        st.header(" Registrar Nova Venda")
+        jogos = listar_jogos()
+        if not jogos:
+            st.warning("Nenhum jogo cadastrado. Cadastre pelo menos um jogo antes de vender.")
+        else:
+            nomes_jogos = [j["nome"] for j in jogos]
+            jogo_selecionado = st.selectbox("Selecione o jogo vendido", nomes_jogos)
+
+            jogo = next(j for j in jogos if j["nome"] == jogo_selecionado)
+            st.write(f"**Gênero:** {jogo['genero']} | **Preço:** R$ {jogo['preco']:.2f}")
+
+            if st.button(" Confirmar Venda"):
+                registrar_venda(jogo["nome"], jogo["genero"], jogo["preco"])
+                st.success(f"Venda de **{jogo['nome']}** registrada com sucesso!")
+
+
+    elif menu == "Visualizar Vendas":
+        st.header(" Histórico de Vendas")
+        vendas = carregar_vendas()
+        if vendas:
+            total_vendas = sum(v["preco"] for v in vendas)
+            st.metric("Total em Vendas", f"R$ {total_vendas:.2f}")
+            st.divider()
+            for v in vendas:
+                st.write(f"**{v['nome']}** |  {v['genero']} |  R$ {v['preco']:.2f} |  {v['data_hora']}")
+        else:
+            st.info("Nenhuma venda registrada ainda.")
+     
